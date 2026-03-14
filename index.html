@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TruthLens AI</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+    header { background: #1e293b; padding: 24px; text-align: center; border-bottom: 1px solid #334155; }
+    header h1 { font-size: 2rem; color: #38bdf8; }
+    header p { color: #94a3b8; margin-top: 6px; }
+    .container { max-width: 900px; margin: 40px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .container-full { max-width: 900px; margin: 0 auto 24px auto; padding: 0 20px; }
+    .card { background: #1e293b; border-radius: 12px; padding: 28px; border: 1px solid #334155; }
+    .card h2 { font-size: 1.1rem; color: #38bdf8; margin-bottom: 16px; }
+    .upload-area { border: 2px dashed #334155; border-radius: 8px; padding: 32px; text-align: center; cursor: pointer; transition: border-color 0.2s; }
+    .upload-area:hover { border-color: #38bdf8; }
+    .upload-area input { display: none; }
+    .upload-area label { cursor: pointer; color: #94a3b8; font-size: 0.9rem; }
+    .upload-area .filename { margin-top: 10px; color: #38bdf8; font-size: 0.85rem; }
+    button { width: 100%; margin-top: 16px; padding: 12px; background: #38bdf8; color: #0f172a; border: none; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
+    button:hover { background: #0ea5e9; }
+    button:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+    .result { margin-top: 20px; background: #0f172a; border-radius: 8px; padding: 16px; display: none; }
+    .result.visible { display: block; }
+    .result .nivel { font-size: 1.4rem; font-weight: bold; margin-bottom: 12px; }
+    .nivel.Alto { color: #f87171; }
+    .nivel.Medio { color: #fbbf24; }
+    .nivel.Bajo { color: #34d399; }
+    .result .dato { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e293b; font-size: 0.9rem; }
+    .result .recomendacion { margin-top: 12px; padding: 10px; background: #1e293b; border-radius: 6px; font-size: 0.85rem; color: #94a3b8; }
+    .loading { text-align: center; color: #38bdf8; margin-top: 16px; display: none; }
+    .loading.visible { display: block; }
+    .barra-container { margin-top: 10px; background: #0f172a; border-radius: 99px; height: 10px; overflow: hidden; }
+    .barra-fill { height: 100%; border-radius: 99px; transition: width 0.8s ease; }
+    .barra-Alto { background: #f87171; }
+    .barra-Medio { background: #fbbf24; }
+    .barra-Bajo { background: #34d399; }
+    .historial { max-width: 900px; margin: 0 auto 40px auto; padding: 0 20px; }
+    .historial h3 { color: #38bdf8; margin-bottom: 16px; font-size: 1rem; }
+    .historial-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+    .historial-item { background: #1e293b; border-radius: 10px; padding: 16px; border: 1px solid #334155; font-size: 0.85rem; }
+    .historial-item .h-nivel { font-weight: bold; margin-bottom: 8px; }
+    .historial-item .h-dato { display: flex; justify-content: space-between; color: #94a3b8; padding: 3px 0; }
+    input[type="text"] { width: 100%; padding: 12px; background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 8px; font-size: 0.9rem; font-family: 'Segoe UI', sans-serif; margin-top: 0; }
+    input[type="text"]:focus { outline: none; border-color: #38bdf8; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🔍 TruthLens AI</h1>
+  <p>Detector de manipulación digital y acoso con IA</p>
+  <div style="margin-top:10px;">
+    <span style="background:#0f172a; border:1px solid #334155; border-radius:99px; padding:6px 16px; font-size:0.85rem; color:#38bdf8;">
+      🔬 Análisis realizados: <strong id="contadorAnalisis">0</strong>
+    </span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Card Imagen -->
+  <div class="card">
+    <h2>🖼️ Detector de Deepfake</h2>
+    <div style="display:flex; gap:8px; margin-bottom:16px;">
+      <button onclick="switchImageTab('archivo')" id="tabImagenArchivo"
+        style="flex:1; padding:8px; background:#38bdf8; color:#0f172a; border:none; border-radius:6px; font-weight:bold; cursor:pointer; margin-top:0;">
+        📁 Subir archivo
+      </button>
+      <button onclick="switchImageTab('url')" id="tabImagenUrl"
+        style="flex:1; padding:8px; background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:6px; font-weight:bold; cursor:pointer; margin-top:0;">
+        🔗 Pegar URL
+      </button>
+    </div>
+    <div id="panelImagenArchivo">
+      <div class="upload-area">
+        <input type="file" id="inputImagen" accept="image/*" onchange="mostrarPreview()"/>
+        <label for="inputImagen" id="labelImagen">📁 Haz clic para subir una imagen<br/><small>JPG, PNG, WEBP</small></label>
+        <div class="filename" id="nombreImagen"></div>
+        <img id="previewImagen" style="display:none; max-width:100%; max-height:180px; margin-top:12px; border-radius:8px; object-fit:cover;"/>
+      </div>
+    </div>
+    <div id="panelImagenUrl" style="display:none;">
+      <input type="text" id="inputImagenUrl" placeholder="https://ejemplo.com/imagen.jpg"/>
+    </div>
+    <button onclick="analizarImagen()" id="btnImagen">Analizar imagen</button>
+    <div class="loading" id="loadingImagen">⏳ Analizando con IA...</div>
+    <div class="result" id="resultImagen"></div>
+  </div>
+
+  <!-- Card Chat -->
+  <div class="card">
+    <h2>💬 Detector de Acoso en Chat</h2>
+    <div style="display:flex; gap:8px; margin-bottom:16px;">
+      <button onclick="switchTab('archivo')" id="tabArchivo"
+        style="flex:1; padding:8px; background:#38bdf8; color:#0f172a; border:none; border-radius:6px; font-weight:bold; cursor:pointer; margin-top:0;">
+        📁 Subir archivo
+      </button>
+      <button onclick="switchTab('texto')" id="tabTexto"
+        style="flex:1; padding:8px; background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:6px; font-weight:bold; cursor:pointer; margin-top:0;">
+        ✏️ Escribir texto
+      </button>
+    </div>
+    <div id="panelArchivo">
+      <div class="upload-area">
+        <input type="file" id="inputChat" accept=".txt" onchange="mostrarNombre('inputChat','nombreChat')"/>
+        <label for="inputChat">📁 Haz clic para subir archivo de chat<br/><small>Solo archivos .TXT</small></label>
+        <div class="filename" id="nombreChat"></div>
+      </div>
+    </div>
+    <div id="panelTexto" style="display:none;">
+      <textarea id="textoDirecto" placeholder="Pega aquí los mensajes del chat a analizar..."
+        style="width:100%; height:120px; background:#0f172a; color:#e2e8f0; border:1px solid #334155;
+        border-radius:8px; padding:12px; font-size:0.9rem; resize:none; font-family:'Segoe UI',sans-serif;">
+      </textarea>
+    </div>
+    <button onclick="analizarChat()" id="btnChat">Analizar chat</button>
+    <div class="loading" id="loadingChat">⏳ Analizando con IA...</div>
+    <div class="result" id="resultChat"></div>
+  </div>
+
+</div>
+
+<!-- Card URL -->
+<div class="container-full">
+  <div class="card">
+    <h2>🔗 Detector de URL Sospechosa</h2>
+    <input type="text" id="inputUrl" placeholder="https://ejemplo.com/pagina-sospechosa"/>
+    <button onclick="analizarUrl()" id="btnUrl">Analizar URL</button>
+    <div class="loading" id="loadingUrl">⏳ Analizando URL...</div>
+    <div class="result" id="resultUrl"></div>
+  </div>
+</div>
+
+<!-- Historial -->
+<div class="historial">
+  <div id="historialContainer" style="display:none;">
+    <h3>📋 Historial de análisis</h3>
+    <div class="historial-grid" id="historialGrid"></div>
+  </div>
+</div>
+
+<script>
+  let contadorAnalisis = 0;
+  const API = "http://127.0.0.1:8000";
+  let ultimaImagenUrl = null; // guarda la URL de imagen analizada por URL
+
+  function mostrarNombre(inputId, nombreId) {
+    const archivo = document.getElementById(inputId).files[0];
+    document.getElementById(nombreId).textContent = archivo ? archivo.name : "";
+  }
+
+  function incrementarContador() {
+    contadorAnalisis++;
+    document.getElementById("contadorAnalisis").textContent = contadorAnalisis;
+  }
+
+  function agregarHistorial(data) {
+    const container = document.getElementById("historialContainer");
+    const grid = document.getElementById("historialGrid");
+    container.style.display = "block";
+    const nivel = data.nivel_riesgo || "Bajo";
+    const colores = { Alto: "#f87171", Medio: "#fbbf24", Bajo: "#34d399" };
+    const ahora = new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+    let emoji = data.tipo === "imagen" ? "🖼️" : data.tipo === "url" ? "🔗" : "💬";
+    let porcentaje = data.probabilidad_ia || data.probabilidad_phishing || data.probabilidad_toxicidad || "N/A";
+    let etiqueta = data.tipo === "imagen" ? "Probabilidad IA" : data.tipo === "url" ? "Riesgo phishing" : "Toxicidad";
+    const item = document.createElement("div");
+    item.className = "historial-item";
+    item.innerHTML = `
+      <div class="h-nivel" style="color:${colores[nivel]}">
+        ${emoji} ${data.archivo || data.url || "texto_directo.txt"}
+      </div>
+      <div class="h-dato"><span>${etiqueta}</span><span>${porcentaje}</span></div>
+      <div class="h-dato"><span>Nivel de riesgo</span><span style="color:${colores[nivel]}">${nivel}</span></div>
+      <div class="h-dato"><span>Hora</span><span>${ahora}</span></div>
+    `;
+    grid.insertBefore(item, grid.firstChild);
+  }
+
+  function mostrarPreview() {
+    const archivo = document.getElementById("inputImagen").files[0];
+    const preview = document.getElementById("previewImagen");
+    const nombre = document.getElementById("nombreImagen");
+    const label = document.getElementById("labelImagen");
+    if (archivo) {
+      preview.src = URL.createObjectURL(archivo);
+      preview.style.display = "block";
+      nombre.textContent = archivo.name;
+      label.style.display = "none";
+    }
+  }
+
+  function switchImageTab(tab) {
+    const panelArchivo = document.getElementById("panelImagenArchivo");
+    const panelUrl = document.getElementById("panelImagenUrl");
+    const tabArchivo = document.getElementById("tabImagenArchivo");
+    const tabUrl = document.getElementById("tabImagenUrl");
+    if (tab === "archivo") {
+      panelArchivo.style.display = "block";
+      panelUrl.style.display = "none";
+      tabArchivo.style.background = "#38bdf8";
+      tabArchivo.style.color = "#0f172a";
+      tabUrl.style.background = "#1e293b";
+      tabUrl.style.color = "#94a3b8";
+    } else {
+      panelArchivo.style.display = "none";
+      panelUrl.style.display = "block";
+      tabUrl.style.background = "#38bdf8";
+      tabUrl.style.color = "#0f172a";
+      tabArchivo.style.background = "#1e293b";
+      tabArchivo.style.color = "#94a3b8";
+    }
+  }
+
+  function switchTab(tab) {
+    const panelArchivo = document.getElementById("panelArchivo");
+    const panelTexto = document.getElementById("panelTexto");
+    const tabArchivo = document.getElementById("tabArchivo");
+    const tabTexto = document.getElementById("tabTexto");
+    if (tab === "archivo") {
+      panelArchivo.style.display = "block";
+      panelTexto.style.display = "none";
+      tabArchivo.style.background = "#38bdf8";
+      tabArchivo.style.color = "#0f172a";
+      tabTexto.style.background = "#1e293b";
+      tabTexto.style.color = "#94a3b8";
+    } else {
+      panelArchivo.style.display = "none";
+      panelTexto.style.display = "block";
+      tabTexto.style.background = "#38bdf8";
+      tabTexto.style.color = "#0f172a";
+      tabArchivo.style.background = "#1e293b";
+      tabArchivo.style.color = "#94a3b8";
+    }
+  }
+
+  function mostrarResultado(containerId, data, inputId, imageUrl = null) {
+    const el = document.getElementById(containerId);
+    const nivel = data.nivel_riesgo || "Bajo";
+    const esImagen = data.tipo === "imagen";
+    const esUrl = data.tipo === "url";
+    const porcentaje = esImagen ? data.probabilidad_ia : esUrl ? data.probabilidad_phishing : data.probabilidad_toxicidad;
+    const etiqueta = esImagen ? "Probabilidad IA" : esUrl ? "Riesgo phishing" : "Probabilidad toxicidad";
+    const nombre = esUrl ? data.url : data.archivo;
+
+    let contenido = `
+      <div class="nivel ${nivel}">⚠️ Riesgo ${nivel}</div>
+      <div class="dato"><span>${esUrl ? "URL" : "Archivo"}</span><span style="word-break:break-all;font-size:0.8rem">${nombre}</span></div>
+      <div class="dato"><span>${etiqueta}</span><span>${porcentaje}</span></div>
+      <div class="barra-container">
+        <div class="barra-fill barra-${nivel}" style="width:${porcentaje}"></div>
+      </div>
+    `;
+
+    if (esUrl && data.indicadores) {
+      contenido += `<div style="margin-top:10px; font-size:0.85rem; color:#94a3b8;">Indicadores:</div>`;
+      data.indicadores.forEach(ind => {
+        contenido += `<div style="color:#f87171; font-size:0.8rem; padding:2px 0;">• ${ind}</div>`;
+      });
+    }
+
+    contenido += `
+      <div class="dato"><span>Nivel de riesgo</span><span>${nivel}</span></div>
+      <div class="recomendacion">💡 ${data.recomendacion}</div>
+    `;
+
+    if (!esUrl) {
+      const urlParam = imageUrl ? `&image_url=${encodeURIComponent(imageUrl)}` : '';
+      const inputParam = inputId ? `'${inputId}'` : 'null';
+      contenido += `
+        <button onclick="descargarReporte(${inputParam}, '${esImagen ? 'imagen' : 'chat'}', '${imageUrl || ''}')"
+          style="background:#1e40af; margin-top:12px;">
+          📄 Descargar reporte PDF
+        </button>
+      `;
+    }
+
+    el.innerHTML = contenido;
+    el.classList.add("visible");
+  }
+
+  async function descargarReporte(inputId, tipo, imageUrl = '') {
+    let url;
+    if (imageUrl) {
+      url = `${API}/report?tipo=${tipo}&image_url=${encodeURIComponent(imageUrl)}`;
+      const res = await fetch(url, { method: "POST" });
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = window.URL.createObjectURL(blob);
+      a.download = "reporte_truthlens.pdf";
+      a.click();
+      return;
+    }
+
+    const formData = new FormData();
+    const archivo = inputId ? document.getElementById(inputId).files[0] : null;
+    if (archivo) {
+      formData.append("file", archivo);
+    } else {
+      const texto = document.getElementById("textoDirecto").value.trim();
+      const blob = new Blob([texto], { type: "text/plain" });
+      formData.append("file", blob, "texto_directo.txt");
+    }
+    const res = await fetch(`${API}/report?tipo=${tipo}`, { method: "POST", body: formData });
+    const blob2 = await res.blob();
+    const a = document.createElement("a");
+    a.href = window.URL.createObjectURL(blob2);
+    a.download = "reporte_truthlens.pdf";
+    a.click();
+  }
+
+  async function analizarImagen() {
+    const btn = document.getElementById("btnImagen");
+    const loading = document.getElementById("loadingImagen");
+    const panelUrl = document.getElementById("panelImagenUrl");
+    const esUrl = panelUrl.style.display !== "none";
+    btn.disabled = true;
+    loading.classList.add("visible");
+    try {
+      let data;
+      let imageUrl = null;
+      if (esUrl) {
+        imageUrl = document.getElementById("inputImagenUrl").value.trim();
+        if (!imageUrl) { alert("Pega una URL de imagen primero"); btn.disabled = false; loading.classList.remove("visible"); return; }
+        const res = await fetch(`${API}/analyze/image-url?image_url=${encodeURIComponent(imageUrl)}`, { method: "POST" });
+        data = await res.json();
+      } else {
+        const archivo = document.getElementById("inputImagen").files[0];
+        if (!archivo) { alert("Selecciona una imagen primero"); btn.disabled = false; loading.classList.remove("visible"); return; }
+        const formData = new FormData();
+        formData.append("file", archivo);
+        const res = await fetch(`${API}/analyze/image`, { method: "POST", body: formData });
+        data = await res.json();
+        document.getElementById("inputImagen").value = "";
+        document.getElementById("labelImagen").style.display = "block";
+        document.getElementById("previewImagen").style.display = "none";
+        document.getElementById("nombreImagen").textContent = "";
+      }
+      mostrarResultado("resultImagen", data, esUrl ? null : "inputImagen", imageUrl);
+      incrementarContador();
+      agregarHistorial(data);
+    } catch (e) {
+      alert("Error conectando con el servidor");
+    }
+    btn.disabled = false;
+    loading.classList.remove("visible");
+  }
+
+  async function analizarChat() {
+    const btn = document.getElementById("btnChat");
+    const loading = document.getElementById("loadingChat");
+    const panelTexto = document.getElementById("panelTexto");
+    const estaEnTexto = panelTexto.style.display !== "none";
+    let formData = new FormData();
+    if (estaEnTexto) {
+      const texto = document.getElementById("textoDirecto").value.trim();
+      if (!texto) return alert("Escribe algún mensaje primero");
+      const blob = new Blob([texto], { type: "text/plain" });
+      formData.append("file", blob, "texto_directo.txt");
+    } else {
+      const archivo = document.getElementById("inputChat").files[0];
+      if (!archivo) return alert("Selecciona un archivo de chat primero");
+      formData.append("file", archivo);
+    }
+    btn.disabled = true;
+    loading.classList.add("visible");
+    try {
+      const res = await fetch(`${API}/analyze/chat`, { method: "POST", body: formData });
+      const data = await res.json();
+      mostrarResultado("resultChat", data, estaEnTexto ? null : "inputChat");
+      incrementarContador();
+      agregarHistorial(data);
+    } catch (e) {
+      alert("Error conectando con el servidor");
+    }
+    btn.disabled = false;
+    loading.classList.remove("visible");
+  }
+
+  async function analizarUrl() {
+    const url = document.getElementById("inputUrl").value.trim();
+    if (!url) return alert("Pega una URL primero");
+    const btn = document.getElementById("btnUrl");
+    const loading = document.getElementById("loadingUrl");
+    btn.disabled = true;
+    loading.classList.add("visible");
+    try {
+      const res = await fetch(`${API}/analyze/url?url=${encodeURIComponent(url)}`, { method: "POST" });
+      const data = await res.json();
+      mostrarResultado("resultUrl", data, null);
+      incrementarContador();
+      agregarHistorial(data);
+    } catch (e) {
+      alert("Error conectando con el servidor");
+    }
+    btn.disabled = false;
+    loading.classList.remove("visible");
+  }
+</script>
+
+</body>
+</html>
